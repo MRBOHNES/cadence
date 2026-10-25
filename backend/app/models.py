@@ -52,3 +52,12 @@ class Incident(Base):
     cause: Mapped[str] = mapped_column(Text)
 
     monitor: Mapped[Monitor] = relationship()
+
+
+class Achievement(Base):
+    """Only unlock timestamps are stored; whether a rule currently holds is computed from checks."""
+
+    __tablename__ = "achievements"
+
+    id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    unlocked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

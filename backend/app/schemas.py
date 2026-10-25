@@ -21,6 +21,8 @@ class Summary(BaseModel):
     failed_24h: int
     latest_sweep: int | None
     next_sweep_at: datetime | None
+    streak_days: int  # days since the last incident, all services
+    best_streak_days: int
     open_incidents: int
 
 
@@ -35,6 +37,9 @@ class MonitorOut(BaseModel):
     p50_ms: float | None
     p95_ms: float | None
     history: list[DayStatus]  # 30 daily buckets, oldest first
+    streak_days: int
+    hp: int  # 0-10
+    rank: int  # 1 = best 30d uptime, ties broken by lower median latency
 
 
 class LatencyPoint(BaseModel):
@@ -70,3 +75,12 @@ class IncidentOut(BaseModel):
     cause: str
     last_ok_at: datetime | None  # last good check before the failures
     opened_at: datetime | None  # the failure that tripped the 2-failure rule
+
+
+class AchievementOut(BaseModel):
+    id: str
+    title: str
+    description: str
+    unlocked: bool
+    unlocked_at: datetime | None
+    progress: str | None  # shown while locked
