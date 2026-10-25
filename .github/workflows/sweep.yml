@@ -1,0 +1,26 @@
+name: Sweep
+
+# Triggers the monitoring sweep on the deployed API every 5 minutes.
+# GitHub cron is best-effort: runs can start a few minutes late.
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      # Render's free tier sleeps when idle, so the first request can take ~1 minute while
+      # the service boots. --max-time 150 covers that; --retry 1 gives one more attempt
+      # (--retry-all-errors also retries timeouts and 5xx, which curl skips by default).
+      - name: Call POST /internal/run-sweep
+        env:
+          API_URL: ${{ secrets.API_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          curl --fail-with-body --show-error --silent \
+            --max-time 150 --retry 1 --retry-all-errors --retry-delay 5 \
+            -X POST -H "X-Cron-Secret: $CRON_SECRET" \
+            "$API_URL/internal/run-sweep"
