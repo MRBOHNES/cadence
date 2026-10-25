@@ -1,6 +1,6 @@
 [
   {"name": "ClaimSage web", "short_code": "web", "url": "https://claim-sage-six.vercel.app"},
-  {"name": "ClaimSage API", "short_code": "api", "url": "https://claimsage-api.onrender.com/health"},
+  {"name": "ClaimSage API", "short_code": "api", "url": "https://claimsage-api.onrender.com"},
   {"name": "GitHub", "short_code": "gh", "url": "https://github.com"},
   {"name": "example.com", "short_code": "ex", "url": "https://example.com"}
 ]

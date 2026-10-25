@@ -72,7 +72,7 @@ Regenerate the frontend API types after changing the backend schema (backend mus
 cd frontend && npm run gen:types
 ```
 
-Edit the monitored URLs in `backend/seed/monitors.json`. The seed runs on every deploy and updates monitors by `short_code`. **Set the real ClaimSage API URL there** (it is a placeholder).
+Edit the monitored URLs in `backend/seed/monitors.json`. The seed runs on every deploy and updates monitors by `short_code`. Point it at your own services.
 
 ## Deploy
 
