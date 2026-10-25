@@ -1,14 +1,8 @@
 import { StreakBar } from "./Blocks";
+import { Marked, type Tone } from "./Marker";
 import type { Summary } from "@/lib/api";
 import { ms, pct, signed } from "@/lib/format";
 
-type Tone = "good" | "bad" | "warn" | "muted";
-const TONE: Record<Tone, string> = {
-  good: "text-up",
-  bad: "text-down",
-  warn: "text-deg",
-  muted: "text-muted",
-};
 
 function Cell({
   label,
@@ -32,7 +26,11 @@ function Cell({
 }
 
 function Change({ tone, children }: { tone: Tone; children: React.ReactNode }) {
-  return <p className={TONE[tone]}>{children}</p>;
+  return (
+    <p>
+      <Marked tone={tone}>{children}</Marked>
+    </p>
+  );
 }
 
 /** For latency, a drop is good. */

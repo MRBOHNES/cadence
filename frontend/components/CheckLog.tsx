@@ -1,4 +1,5 @@
 import type { RecentCheck } from "@/lib/api";
+import { Marked } from "./Marker";
 import { SLOW_MS, istTime } from "@/lib/format";
 
 export function CheckLog({ checks }: { checks: RecentCheck[] }) {
@@ -22,10 +23,16 @@ export function CheckLog({ checks }: { checks: RecentCheck[] }) {
               <tr key={c.id} style={c.ok ? undefined : { background: "var(--down-tint)" }}>
                 <td className="py-1 pr-2">{istTime(c.checked_at)}</td>
                 <td className="py-1 pr-2">{c.short_code}</td>
-                <td className={`py-1 pr-2 ${c.ok ? "" : "font-medium text-down"}`}>
-                  {c.status_code ?? (c.error === "timeout" ? "timeout" : "error")}
+                <td className="py-1 pr-2">
+                  {c.ok ? c.status_code : (
+                    <span className="font-medium">
+                      <Marked tone="bad" ink>{c.status_code ?? (c.error === "timeout" ? "timeout" : "error")}</Marked>
+                    </span>
+                  )}
                 </td>
-                <td className={`py-1 text-right ${slow ? "font-medium text-deg" : ""}`}>{c.latency_ms ?? "--"}</td>
+                <td className="py-1 text-right">
+                  {slow ? <Marked tone="warn">{c.latency_ms}</Marked> : (c.latency_ms ?? "--")}
+                </td>
               </tr>
             );
           })}

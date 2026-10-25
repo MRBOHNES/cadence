@@ -34,7 +34,7 @@ export function LatencyChart({ name, series }: { name: string; series: LatencySe
   return (
     <section className="panel p-3" aria-label={`${name} latency`}>
       <div className="flex items-baseline justify-between gap-2">
-        <h3 className="text-[13px] font-semibold">{name}</h3>
+        <h2 className="text-[13px] font-semibold">{name}</h2>
         <p className="font-mono text-[11px] text-muted">
           p50 {ms(series.p50_ms)} · p95 {ms(series.p95_ms)} ms
         </p>

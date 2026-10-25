@@ -24,7 +24,7 @@ export function Header({ data }: { data: Dashboard | null }) {
       </div>
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         {state && (
-          <span className="flex items-center gap-2 font-mono text-[12px] font-medium">
+          <span role="status" className="flex items-center gap-2 font-mono text-[12px] font-medium">
             <span className="block size-2.5" style={{ background: state.color }} aria-hidden="true" />
             {state.label}
           </span>

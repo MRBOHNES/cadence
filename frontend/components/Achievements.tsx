@@ -1,3 +1,4 @@
+import { Marked } from "./Marker";
 import { PixelIcon, type IconName } from "./PixelIcon";
 import type { Achievement } from "@/lib/api";
 
@@ -35,8 +36,12 @@ export function Achievements({ items }: { items: Achievement[] }) {
               <PixelIcon name={icon} color={a.unlocked ? (gold ? "var(--gold)" : "var(--up)") : "var(--none)"} />
               <h3 className={`doto mt-2 text-[15px] ${a.unlocked ? "" : "text-muted"}`}>{a.title}</h3>
               <p className="mt-1.5 text-[12px]">{a.description}</p>
-              <p className={`mt-2 font-mono text-[11px] ${a.unlocked ? "text-up" : "text-muted"}`}>
-                {a.unlocked && a.unlocked_at ? `UNLOCKED · ${unlockedOn(a.unlocked_at)}` : a.progress}
+              <p className="mt-2 font-mono text-[11px]">
+                {a.unlocked && a.unlocked_at ? (
+                  <Marked tone="good">UNLOCKED · {unlockedOn(a.unlocked_at)}</Marked>
+                ) : (
+                  <span className="text-muted">{a.progress}</span>
+                )}
               </p>
             </li>
           );

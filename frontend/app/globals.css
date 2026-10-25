@@ -79,3 +79,14 @@ body {
 @theme {
   --breakpoint-desk: 769px;
 }
+
+/* Nothing here animates, but make sure nothing ever does for people who ask for less motion. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
