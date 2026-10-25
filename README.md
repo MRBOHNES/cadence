@@ -7,6 +7,9 @@ Cadence watches a handful of URLs, checks them every five minutes, and publishes
 - Live site: _https://cadence.vercel.app (placeholder)_
 - API: _https://cadence-api.onrender.com (placeholder)_
 
+> First load may take up to a minute: the free Render backend sleeps when idle. The page is
+> server-rendered and cached, so you still see the last results while it wakes up.
+
 ![Screenshot placeholder](docs/screenshot.png)
 
 ## Architecture
@@ -34,9 +37,14 @@ flowchart LR
 
 A **sweep** checks every monitor in parallel (`asyncio.gather`, 10 s timeout). **Down** = timeout, connection error or 5xx. **Slow** = OK but over 500 ms (a warning, still up). An **incident** opens after 2 consecutive failures and resolves on the next success. Uptime, p50/p95 (`percentile_cont`) and daily history are computed in SQL.
 
+## Docs
+
+- [`docs/DEPLOY.md`](docs/DEPLOY.md): the step-by-step deploy runbook (Neon, Render, Vercel, GitHub secrets).
+- [`docs/BUG_JOURNAL.md`](docs/BUG_JOURNAL.md): real bugs hit while building this, how they were found, and the fix. Includes interview Q&A.
+
 ## Run locally
 
-Prerequisites: Python 3.13+ with [uv](https://docs.astral.sh/uv/), Node 22+, and Docker or Podman.
+Prerequisites: Python 3.13+ with [uv](https://docs.astral.sh/uv/), Node 22+, and Docker or Podman. No paid keys or API accounts are needed to run it locally.
 
 ```bash
 # 1. Database (use `podman` instead of `docker` if you prefer)
@@ -60,6 +68,15 @@ npm install
 npm run dev                             # http://localhost:3000
 ```
 
+Configuration (all environment variables, see the `.env.example` files):
+
+| Variable | Where | Purpose |
+| --- | --- | --- |
+| `DATABASE_URL` | backend | Postgres connection string (Neon's plain URL works) |
+| `CRON_SECRET` | backend + GitHub secret | Shared secret for `POST /internal/run-sweep` |
+| `CORS_ORIGIN` | backend | The only browser origin allowed to call the API |
+| `NEXT_PUBLIC_API_URL` | frontend | Base URL of the API |
+
 Tests (need Postgres running; they use a separate `cadence_test` database, created automatically):
 
 ```bash
@@ -74,7 +91,26 @@ cd frontend && npm run gen:types
 
 Edit the monitored URLs in `backend/seed/monitors.json`. The seed runs on every deploy and updates monitors by `short_code`. Point it at your own services.
 
+## API
+
+Interactive docs at `/docs`. Try it:
+
+```bash
+curl localhost:8000/health
+curl localhost:8000/summary                      # KPIs, streaks, next sweep ETA
+curl localhost:8000/monitors                     # per-service state, uptime, HP, rank, 30-day history
+curl "localhost:8000/monitors/1/latency?range=7d"  # 24h | 7d | 30d
+curl "localhost:8000/checks/recent?limit=12"
+curl localhost:8000/incidents
+curl localhost:8000/achievements
+curl -X POST -H "X-Cron-Secret: change-me" localhost:8000/internal/run-sweep
+```
+
+Errors use a uniform `{"detail": "..."}` body: 4xx for bad input, 502/503/504 when the database misbehaves, and 401 for a wrong cron secret.
+
 ## Deploy
+
+Short version (full runbook in [`docs/DEPLOY.md`](docs/DEPLOY.md)):
 
 1. **Neon**: create a project and copy the connection string.
 2. **Render**: new Blueprint from this repo (`render.yaml`). Set `DATABASE_URL` (Neon string, used as-is), `CRON_SECRET` (`openssl rand -hex 32`) and `CORS_ORIGIN` (your Vercel URL).
@@ -98,6 +134,10 @@ Edit the monitored URLs in `backend/seed/monitors.json`. The seed runs on every 
 **Accessibility over exact colours for small text.** The specified teal and orange are about 4.1:1 and 3.7:1 against the panel colour, below the 4.5:1 target for small text. Small status text is therefore charcoal with a coloured square beside it; the exact colours are used for shapes, charts and large type. Lighthouse accessibility: 100.
 
 **Free-tier limits.** Neon and Render free tiers sleep and have storage and compute caps; GitHub cron may be throttled on busy days. For a production service you would move to a paid always-on instance and a real scheduler.
+
+## Status
+
+All of the v1 scope is built: sweeps, incidents, the read API, the game layer, the dashboard with its loading, empty, error and incident states, CI, and the cron workflow. The backend has 100+ tests and CI runs them on Python 3.13 and 3.14. Deployment and the live links are the remaining manual steps.
 
 ## Repo layout
 
