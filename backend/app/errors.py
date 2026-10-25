@@ -1,7 +1,6 @@
 """Map backend failures to clean HTTP errors with a uniform {"detail": ...} body."""
 
 import logging
-import asyncio
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
@@ -16,7 +15,6 @@ def _error(status: int, detail: str) -> JSONResponse:
 
 def register_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(TimeoutError)
-    @app.exception_handler(asyncio.TimeoutError)
     async def timeout_handler(_: Request, exc: Exception) -> JSONResponse:
         log.warning("Database timeout: %s", exc)
         return _error(504, "The database took too long to respond")

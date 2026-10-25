@@ -19,10 +19,11 @@ def hp_for(uptime_30d: float | None) -> int:
     """0-10 blocks: 99.0% -> 0, 100% -> 10, one block per 0.1 percentage point.
 
     Half-up rounding on purpose: Python's round() is banker's rounding (9.5 -> 10 but 8.5 -> 8).
+    The inner round() strips float noise first: (99.85 - 99.0) / 0.1 is 8.4999999..., not 8.5.
     """
     if uptime_30d is None:
         return 0
-    return max(0, min(10, math.floor((uptime_30d - 99.0) / 0.1 + 0.5)))
+    return max(0, min(10, math.floor(round((uptime_30d - 99.0) * 10, 6) + 0.5)))
 
 
 def streaks(
