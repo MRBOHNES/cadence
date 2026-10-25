@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Achievements } from "./Achievements";
 import { CheckLog } from "./CheckLog";
 import { Footer } from "./Footer";
@@ -13,6 +13,11 @@ import { DashboardSkeleton, EmptyState, ErrorState } from "./States";
 import { loadDashboard, type Dashboard as DashboardData } from "@/lib/api";
 
 const REFRESH_MS = 60_000;
+// Once the countdown hits zero, look for the new sweep every 10s instead of waiting for the
+// next 60s tick. Gives up after 2 minutes so a dead scheduler doesn't cause endless polling.
+const OVERDUE_POLL_MS = 10_000;
+const OVERDUE_GRACE_MS = 5_000;
+const OVERDUE_GIVE_UP_MS = 120_000;
 
 /**
  * `initial` is what the server rendered (cached up to 60s by Next), so visitors see data
@@ -21,6 +26,11 @@ const REFRESH_MS = 60_000;
 export function Dashboard({ initial }: { initial: DashboardData | null }) {
   const [data, setData] = useState(initial);
   const [failed, setFailed] = useState(false);
+  // The poller reads the latest ETA without restarting every time data changes.
+  const nextSweepAt = useRef<string | null>(null);
+  useEffect(() => {
+    nextSweepAt.current = data?.summary.next_sweep_at ?? null;
+  }, [data]);
   const [attempt, setAttempt] = useState(0); // bumped by "Try again" to re-run the effect
 
   useEffect(() => {
@@ -39,9 +49,15 @@ export function Dashboard({ initial }: { initial: DashboardData | null }) {
     };
     if (!initial || attempt > 0) void refresh();
     const id = setInterval(refresh, REFRESH_MS);
+    const overdueId = setInterval(() => {
+      const due = nextSweepAt.current;
+      const late = due ? Date.now() - new Date(due).getTime() : 0;
+      if (late > OVERDUE_GRACE_MS && late < OVERDUE_GIVE_UP_MS) void refresh();
+    }, OVERDUE_POLL_MS);
     return () => {
       active = false;
       clearInterval(id);
+      clearInterval(overdueId);
     };
   }, [initial, attempt]);
 
