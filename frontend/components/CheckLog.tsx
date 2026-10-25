@@ -6,14 +6,21 @@ export function CheckLog({ checks }: { checks: RecentCheck[] }) {
   return (
     <section className="panel p-3">
       <h2 className="label mb-2 font-semibold">Recent checks</h2>
+      {/* Scrolls inside the panel; tabIndex lets keyboard users scroll it too. */}
+      <div
+        className="max-h-[360px] overflow-y-auto"
+        tabIndex={0}
+        role="region"
+        aria-label="Recent checks, scrollable"
+      >
       <table className="w-full font-mono text-[12px]">
         <caption className="sr-only">Most recent checks, newest first. Times are IST.</caption>
         <thead>
           <tr className="label text-left text-muted">
-            <th scope="col" className="py-1 pr-2 font-medium">time</th>
-            <th scope="col" className="py-1 pr-2 font-medium">svc</th>
-            <th scope="col" className="py-1 pr-2 font-medium">code</th>
-            <th scope="col" className="py-1 text-right font-medium">ms</th>
+            <th scope="col" className="sticky top-0 bg-panel py-1 pr-2 font-medium">time</th>
+            <th scope="col" className="sticky top-0 bg-panel py-1 pr-2 font-medium">svc</th>
+            <th scope="col" className="sticky top-0 bg-panel py-1 pr-2 font-medium">code</th>
+            <th scope="col" className="sticky top-0 bg-panel py-1 text-right font-medium">ms</th>
           </tr>
         </thead>
         <tbody>
@@ -38,6 +45,7 @@ export function CheckLog({ checks }: { checks: RecentCheck[] }) {
           })}
         </tbody>
       </table>
+      </div>
     </section>
   );
 }

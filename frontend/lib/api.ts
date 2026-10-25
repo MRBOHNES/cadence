@@ -32,7 +32,7 @@ export async function loadDashboard(init?: RequestInit): Promise<Dashboard> {
   const [summary, monitors, checks, incidents, achievements] = await Promise.all([
     get<Summary>("/summary", init),
     get<Monitor[]>("/monitors", init),
-    get<RecentCheck[]>("/checks/recent?limit=12", init),
+    get<RecentCheck[]>("/checks/recent?limit=50", init),
     get<Incident[]>("/incidents?limit=20", init),
     get<Achievement[]>("/achievements", init),
   ]);
