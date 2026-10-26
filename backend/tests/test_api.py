@@ -28,7 +28,7 @@ async def test_summary_shape_and_values(client, seed):
     assert set(body) == {
         "uptime_30d", "uptime_change", "services_up", "services_total", "median_ms_24h",
         "median_change_ms", "p95_ms_24h", "p95_change_ms", "checks_24h", "failed_24h",
-        "latest_sweep", "latest_sweep_at", "next_sweep_at", "streak_days", "best_streak_days", "open_incidents",
+        "latest_sweep", "latest_sweep_at", "latest_sweep_duration_ms", "next_sweep_at", "streak_days", "best_streak_days", "open_incidents",
     }  # fmt: skip
     assert body["uptime_30d"] == 50.0
     assert (body["checks_24h"], body["failed_24h"]) == (2, 1)
@@ -159,12 +159,12 @@ async def test_achievements_endpoint_lists_five(client, seed):
 
 @pytest.fixture
 def fake_network(monkeypatch):
-    from app.routers import internal
-    from app.sweep import make_client
+    from app import sweep
 
+    real_make_client = sweep.make_client
     monkeypatch.setattr(settings, "cron_secret", "s3cret")
     monkeypatch.setattr(
-        internal, "make_client", lambda: make_client(httpx.MockTransport(lambda r: httpx.Response(200)))
+        sweep, "make_client", lambda: real_make_client(httpx.MockTransport(lambda r: httpx.Response(200)))
     )
 
 
@@ -182,7 +182,9 @@ async def test_run_sweep_with_secret_runs_checks(client, seed, fake_network):
     await seed.commit()
     response = await client.post("/internal/run-sweep", headers={"X-Cron-Secret": "s3cret"})
     assert response.status_code == 200
-    assert response.json() == {"sweep_id": seed.sweep_id + 1, "skipped": None}
+    body = response.json()
+    assert (body["sweep_id"], body["skipped"]) == (seed.sweep_id + 1, None)
+    assert isinstance(body["duration_ms"], int) and body["duration_ms"] >= 0
     assert (await client.get("/checks/recent")).json()[0]["short_code"] == "a"
 
 
@@ -198,12 +200,16 @@ async def test_run_sweep_skips_when_previous_sweep_is_too_recent(client, session
     await seed.commit()
     response = await client.post("/internal/run-sweep", headers={"X-Cron-Secret": "s3cret"})
     assert response.status_code == 200
-    assert response.json() == {"sweep_id": None, "skipped": "previous sweep started 30s ago"}
+    assert response.json() == {
+        "sweep_id": None,
+        "skipped": "last sweep was under 2 minutes ago, try again in 90s",
+        "duration_ms": None,
+    }
     assert (await client.get("/checks/recent")).json() == []
 
 
 async def test_run_sweep_skips_while_another_sweep_holds_the_lock(client, session_factory, seed, fake_network):
-    from app.routers.internal import SWEEP_LOCK_KEY
+    from app.sweep import SWEEP_LOCK_KEY
 
     await seed.monitor("a")
     await seed.commit()
@@ -211,7 +217,40 @@ async def test_run_sweep_skips_while_another_sweep_holds_the_lock(client, sessio
         await other.execute(text("SELECT pg_advisory_xact_lock(:k)"), {"k": SWEEP_LOCK_KEY})
         response = await client.post("/internal/run-sweep", headers={"X-Cron-Secret": "s3cret"})
         await other.rollback()
-    assert response.json() == {"sweep_id": None, "skipped": "another sweep is in progress"}
+    assert response.json() == {"sweep_id": None, "skipped": "another sweep is in progress", "duration_ms": None}
+
+
+# --- Public "sweep now" button ------------------------------------------------------------
+
+
+async def test_public_sweep_runs_without_a_secret(client, seed, fake_network):
+    await seed.monitor("a")
+    await seed.commit()
+    response = await client.post("/sweep")
+    assert response.status_code == 200 and response.json()["sweep_id"] == seed.sweep_id + 1
+
+
+async def test_public_sweep_obeys_the_two_minute_gap(client, session, seed, fake_network):
+    await seed.monitor("a")
+    session.add(Sweep(started_at=NOW - timedelta(seconds=100)))
+    await seed.commit()
+    body = (await client.post("/sweep")).json()
+    assert body["sweep_id"] is None and body["skipped"].endswith("try again in 20s")
+
+
+async def test_summary_reports_how_long_the_last_sweep_took(client, session, seed):
+    await seed.monitor("a")
+    session.add(Sweep(started_at=NOW - timedelta(minutes=1, seconds=4), finished_at=NOW - timedelta(minutes=1)))
+    await seed.commit()
+    assert (await client.get("/summary")).json()["latest_sweep_duration_ms"] == 4000
+
+
+async def test_cors_allows_post_from_the_frontend(client):
+    response = await client.options(
+        "/sweep", headers={"Origin": settings.cors_origin, "Access-Control-Request-Method": "POST"}
+    )
+    assert response.status_code == 200
+    assert "POST" in response.headers["access-control-allow-methods"]
 
 
 # --- CORS and error mapping ----------------------------------------------------------------

@@ -3,16 +3,21 @@
 import asyncio
 import time
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import httpx
-from sqlalchemy import select
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Check, Incident, Monitor, Sweep
 
 CHECK_TIMEOUT_SECONDS = 10.0
 FAILURES_TO_OPEN_INCIDENT = 2
+# Two sweeps closer than this would count one outage twice and defeat the 2-failure rule.
+# It also absorbs the cron's retry, and rate-limits the public "sweep now" button.
+MIN_SWEEP_GAP = timedelta(minutes=2)
+# Arbitrary app-wide key for Postgres advisory locks: "one sweep at a time".
+SWEEP_LOCK_KEY = 7_202_604
 
 
 @dataclass
@@ -103,3 +108,30 @@ async def run_sweep(session: AsyncSession, client: httpx.AsyncClient) -> Sweep:
     sweep.finished_at = datetime.now(UTC)
     await session.commit()
     return sweep
+
+
+def duration_ms(sweep: Sweep) -> int | None:
+    if sweep.finished_at is None:
+        return None
+    return round((sweep.finished_at - sweep.started_at).total_seconds() * 1000)
+
+
+async def try_sweep(session: AsyncSession, now: datetime) -> dict:
+    """Run a sweep unless one is in progress or the last one started under MIN_SWEEP_GAP ago.
+
+    Both the cron endpoint and the public button go through here, so the rules are the same.
+    """
+    # Transaction-scoped lock: released automatically when run_sweep commits or we roll back.
+    locked = await session.scalar(text("SELECT pg_try_advisory_xact_lock(:key)"), {"key": SWEEP_LOCK_KEY})
+    if not locked:
+        return {"sweep_id": None, "skipped": "another sweep is in progress", "duration_ms": None}
+
+    last_started = await session.scalar(select(func.max(Sweep.started_at)))
+    if last_started is not None and now - last_started < MIN_SWEEP_GAP:
+        await session.rollback()  # releases the lock
+        wait = int((MIN_SWEEP_GAP - (now - last_started)).total_seconds())
+        return {"sweep_id": None, "skipped": f"last sweep was under 2 minutes ago, try again in {wait}s", "duration_ms": None}
+
+    async with make_client() as client:
+        sweep = await run_sweep(session, client)
+    return {"sweep_id": sweep.id, "skipped": None, "duration_ms": duration_ms(sweep)}

@@ -132,7 +132,11 @@ PREV_LATENCY_SQL = q("""
     WHERE checked_at <= :now - interval '24 hours' AND checked_at > :now - interval '48 hours'
 """)
 
-SWEEP_SQL = text("SELECT max(id) AS latest, (SELECT started_at FROM sweeps ORDER BY id DESC LIMIT 1) AS started FROM sweeps")
+SWEEP_SQL = text("""
+    SELECT id AS latest, started_at AS started,
+           ROUND(EXTRACT(EPOCH FROM (finished_at - started_at)) * 1000)::int AS duration_ms
+    FROM sweeps ORDER BY id DESC LIMIT 1
+""")
 OPEN_INCIDENTS_SQL = text("SELECT count(*) FROM incidents WHERE resolved_at IS NULL")
 
 
@@ -143,7 +147,7 @@ def _delta(cur: float | None, prev: float | None, digits: int = 3) -> float | No
 async def summary_row(session: AsyncSession, now: datetime) -> dict:
     s = (await session.execute(SUMMARY_SQL, {"now": now})).mappings().one()
     prev = (await session.execute(PREV_LATENCY_SQL, {"now": now})).mappings().one()
-    sweep = (await session.execute(SWEEP_SQL)).mappings().one()
+    sweep = (await session.execute(SWEEP_SQL)).mappings().one_or_none() or {}
     open_incidents = (await session.execute(OPEN_INCIDENTS_SQL)).scalar_one()
     return {
         "uptime_30d": _round(s["uptime_cur"]),
@@ -154,8 +158,9 @@ async def summary_row(session: AsyncSession, now: datetime) -> dict:
         "p95_change_ms": _delta(s["p95_cur"], prev["p95"], 1),
         "checks_24h": s["checks_24h"],
         "failed_24h": s["failed_24h"],
-        "latest_sweep": sweep["latest"],
-        "sweep_started_at": sweep["started"],
+        "latest_sweep": sweep.get("latest"),
+        "latest_sweep_duration_ms": sweep.get("duration_ms"),
+        "sweep_started_at": sweep.get("started"),
         "open_incidents": open_incidents,
     }
 
