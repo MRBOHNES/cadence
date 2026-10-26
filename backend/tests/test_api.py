@@ -2,11 +2,13 @@ from datetime import timedelta
 
 import httpx
 import pytest
+from sqlalchemy import text
 from sqlalchemy.exc import OperationalError, ProgrammingError
 
 from app.config import settings
 from app.db import get_session
 from app.main import app
+from app.models import Sweep
 from tests.conftest import NOW
 
 M = timedelta(minutes=1)
@@ -26,7 +28,7 @@ async def test_summary_shape_and_values(client, seed):
     assert set(body) == {
         "uptime_30d", "uptime_change", "services_up", "services_total", "median_ms_24h",
         "median_change_ms", "p95_ms_24h", "p95_change_ms", "checks_24h", "failed_24h",
-        "latest_sweep", "next_sweep_at", "streak_days", "best_streak_days", "open_incidents",
+        "latest_sweep", "latest_sweep_at", "next_sweep_at", "streak_days", "best_streak_days", "open_incidents",
     }  # fmt: skip
     assert body["uptime_30d"] == 50.0
     assert (body["checks_24h"], body["failed_24h"]) == (2, 1)
@@ -180,7 +182,36 @@ async def test_run_sweep_with_secret_runs_checks(client, seed, fake_network):
     await seed.commit()
     response = await client.post("/internal/run-sweep", headers={"X-Cron-Secret": "s3cret"})
     assert response.status_code == 200
+    assert response.json() == {"sweep_id": seed.sweep_id + 1, "skipped": None}
     assert (await client.get("/checks/recent")).json()[0]["short_code"] == "a"
+
+
+async def test_run_sweep_fails_closed_without_configured_secret(client, monkeypatch):
+    monkeypatch.setattr(settings, "cron_secret", "")
+    response = await client.post("/internal/run-sweep", headers={"X-Cron-Secret": ""})
+    assert response.status_code == 503
+
+
+async def test_run_sweep_skips_when_previous_sweep_is_too_recent(client, session, seed, fake_network):
+    await seed.monitor("a")
+    session.add(Sweep(started_at=NOW - timedelta(seconds=30)))
+    await seed.commit()
+    response = await client.post("/internal/run-sweep", headers={"X-Cron-Secret": "s3cret"})
+    assert response.status_code == 200
+    assert response.json() == {"sweep_id": None, "skipped": "previous sweep started 30s ago"}
+    assert (await client.get("/checks/recent")).json() == []
+
+
+async def test_run_sweep_skips_while_another_sweep_holds_the_lock(client, session_factory, seed, fake_network):
+    from app.routers.internal import SWEEP_LOCK_KEY
+
+    await seed.monitor("a")
+    await seed.commit()
+    async with session_factory() as other:  # simulates a sweep already running
+        await other.execute(text("SELECT pg_advisory_xact_lock(:k)"), {"k": SWEEP_LOCK_KEY})
+        response = await client.post("/internal/run-sweep", headers={"X-Cron-Secret": "s3cret"})
+        await other.rollback()
+    assert response.json() == {"sweep_id": None, "skipped": "another sweep is in progress"}
 
 
 # --- CORS and error mapping ----------------------------------------------------------------

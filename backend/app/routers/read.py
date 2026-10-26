@@ -1,10 +1,11 @@
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import game, queries
+from app.clock import get_now
 from app.db import get_session
 from app.models import Monitor
 from app.schemas import (
@@ -21,11 +22,6 @@ router = APIRouter()
 SWEEP_INTERVAL = timedelta(minutes=5)
 
 
-def get_now() -> datetime:
-    """Injected so tests can pin the clock."""
-    return datetime.now(UTC)
-
-
 @router.get("/summary", response_model=Summary)
 async def summary(
     session: AsyncSession = Depends(get_session), now: datetime = Depends(get_now)
@@ -40,6 +36,8 @@ async def summary(
         "best_streak_days": best,
         "services_up": sum(m["state"] in ("up", "slow") for m in monitors),
         "services_total": len(monitors),
+        "latest_sweep_at": started,
+        # A prediction only: the cron is best-effort, so the real sweep can be late.
         "next_sweep_at": started + SWEEP_INTERVAL if started else None,
     }
 

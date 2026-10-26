@@ -11,9 +11,9 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from sqlalchemy.pool import NullPool
 
 from app import models  # noqa: F401  (registers tables)
+from app.clock import get_now
 from app.db import Base, get_session
 from app.main import app
-from app.routers.read import get_now
 from tests.helpers import Seeder
 
 TEST_DATABASE_URL = os.environ.get(

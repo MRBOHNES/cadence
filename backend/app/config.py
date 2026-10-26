@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     database_url: str = "postgresql+asyncpg://cadence:cadence@localhost:5432/cadence"
-    cron_secret: str = "change-me"
+    cron_secret: str = ""  # empty = sweeps disabled; there is deliberately no usable default
     cors_origin: str = "http://localhost:3000"
 
     @field_validator("database_url")

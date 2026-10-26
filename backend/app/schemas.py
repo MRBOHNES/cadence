@@ -20,6 +20,7 @@ class Summary(BaseModel):
     checks_24h: int
     failed_24h: int
     latest_sweep: int | None
+    latest_sweep_at: datetime | None
     next_sweep_at: datetime | None
     streak_days: int  # days since the last incident, all services
     best_streak_days: int
@@ -84,3 +85,8 @@ class AchievementOut(BaseModel):
     unlocked: bool
     unlocked_at: datetime | None
     progress: str | None  # shown while locked
+
+
+class SweepResult(BaseModel):
+    sweep_id: int | None  # None when the request was skipped
+    skipped: str | None  # why nothing ran, e.g. another sweep is in progress
