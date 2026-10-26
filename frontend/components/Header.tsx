@@ -48,7 +48,7 @@ export function Header({ data, onSwept }: { data: Dashboard | null; onSwept: () 
         )}
         <span className="flex items-center gap-2 font-mono text-[12px] text-muted">
           next
-          <SweepButton label={now === null ? "--:--" : due ? "DUE" : countdown(nextAt, now)} due={due} onSwept={onSwept} />
+          <SweepButton label={now === null ? "--:--" : due ? "DUE" : countdown(nextAt, now)} due={due} latestSweep={data?.summary.latest_sweep ?? null} onSwept={onSwept} />
         </span>
         <span className="flex items-baseline gap-2">
           <span className="doto text-[18px]" suppressHydrationWarning>

@@ -4,16 +4,40 @@ import { useState } from "react";
 import { triggerSweep } from "@/lib/api";
 import { duration } from "@/lib/format";
 
-type Status = { kind: "idle" } | { kind: "running" } | { kind: "done" | "skipped" | "failed"; text: string };
+type Status =
+  | { kind: "idle" }
+  | { kind: "running" }
+  | { kind: "done"; text: string; sweepId: number }
+  | { kind: "skipped" | "failed"; text: string };
 
 /**
  * The yellow countdown tag doubles as a "sweep now" button. `label` is what the tag shows when
  * idle (the countdown, or DUE). The API allows one sweep every 2 minutes, so repeat clicks are
  * answered with a reason instead of running again.
  */
-export function SweepButton({ label, due, onSwept }: { label: string; due: boolean; onSwept: () => void }) {
+export function SweepButton({
+  label,
+  due,
+  latestSweep,
+  onSwept,
+}: {
+  label: string;
+  due: boolean;
+  latestSweep: number | null; // what the header currently shows
+  onSwept: () => void;
+}) {
   const [status, setStatus] = useState<Status>({ kind: "idle" });
   const running = status.kind === "running";
+  // "done" only bridges the ~2 s until the reloaded header shows the same sweep; after that it
+  // would just repeat the header. Skip and failure messages stay, as the header doesn't show them.
+  const message =
+    status.kind === "done"
+      ? latestSweep !== null && latestSweep >= status.sweepId
+        ? ""
+        : status.text
+      : status.kind === "skipped" || status.kind === "failed"
+        ? status.text
+        : "";
 
   async function sweep() {
     setStatus({ kind: "running" });
@@ -23,7 +47,7 @@ export function SweepButton({ label, due, onSwept }: { label: string; due: boole
         setStatus({ kind: "skipped", text: result.skipped ?? "skipped" });
       } else {
         const took = result.duration_ms === null ? "" : ` in ${duration(result.duration_ms)}`;
-        setStatus({ kind: "done", text: `sweep #${result.sweep_id} done${took}` });
+        setStatus({ kind: "done", text: `sweep #${result.sweep_id} done${took}`, sweepId: result.sweep_id });
         onSwept();
       }
     } catch {
@@ -45,7 +69,7 @@ export function SweepButton({ label, due, onSwept }: { label: string; due: boole
         {running ? "RUNNING" : label}
       </button>
       <span role="status" aria-live="polite" className="font-mono text-[11px] text-muted">
-        {status.kind === "done" || status.kind === "skipped" || status.kind === "failed" ? status.text : ""}
+        {message}
       </span>
     </span>
   );
