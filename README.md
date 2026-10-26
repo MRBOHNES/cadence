@@ -4,7 +4,7 @@
 
 Cadence watches a handful of URLs, checks them every five minutes, and publishes the results on a dense public status page: uptime, latency percentiles, incidents, and a small game layer (streaks, HP, achievements) computed from real data.
 
-- **Live status page:** https://frontend-two-peach-54.vercel.app
+- **Live status page:** https://cadence-status.vercel.app
 - **API:** https://cadence-api-ps0o.onrender.com ([interactive docs](https://cadence-api-ps0o.onrender.com/docs))
 
 > The API runs on Render's free tier, which sleeps when idle, so the first request after a pause can take up to a
