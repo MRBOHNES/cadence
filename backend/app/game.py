@@ -1,9 +1,9 @@
 """Game layer: streaks, HP, rank and achievements. Everything derives from real checks/incidents."""
 
 import math
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Callable
 
 from sqlalchemy import select, text
 from sqlalchemy.dialects.postgresql import insert

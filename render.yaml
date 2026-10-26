@@ -5,6 +5,7 @@ services:
     dockerContext: ./backend
     dockerfilePath: ./backend/Dockerfile
     plan: free
+    region: singapore   # keep the API next to the Neon database
     healthCheckPath: /health
     envVars:
       - key: DATABASE_URL   # Neon connection string; set in the Render dashboard
