@@ -20,6 +20,12 @@ jobs:
           API_URL: ${{ secrets.API_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
+          # Until the two secrets exist (docs/DEPLOY.md, step 6) there is nothing to call. Say so as a
+          # warning instead of failing a red run every 5 minutes.
+          if [ -z "$API_URL" ] || [ -z "$CRON_SECRET" ]; then
+            echo "::warning::API_URL or CRON_SECRET is not set, so no sweep was triggered. See docs/DEPLOY.md, step 6."
+            exit 0
+          fi
           curl --fail-with-body --show-error --silent \
             --max-time 150 --retry 1 --retry-all-errors --retry-delay 5 \
             -X POST -H "X-Cron-Secret: $CRON_SECRET" \

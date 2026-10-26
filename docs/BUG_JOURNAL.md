@@ -1,6 +1,7 @@
 # Bug journal
 
-Real problems hit while building Cadence, and what they taught.
+Real problems hit while building Cadence, and what they taught. For short answers about the design, see
+[`INTERVIEW_QA.md`](INTERVIEW_QA.md).
 
 ## 1. HP was off by one block: floating point
 **Symptom:** a test expecting 99.85% uptime to give HP 9 got 8.
@@ -33,9 +34,8 @@ Real problems hit while building Cadence, and what they taught.
 **Cause:** `sh -c "... && uvicorn ..."` kept the shell as PID 1.
 **Fix:** `exec uvicorn`, so the server receives SIGTERM.
 
-## Interview Q&A
-- **Why a cron from GitHub instead of an in-process scheduler?** The free API sleeps; an in-process timer sleeps with it. See the README trade-offs.
-- **Why two failures to open an incident?** Fewer false alarms for at most 5 minutes of detection delay.
-- **Why compute uptime and percentiles in SQL?** The database does it in one pass over an index; no rows are pulled into Python.
-- **Why no chart library?** Four small SVG charts do not justify a dependency.
-- **How do you know the achievements are not fake?** Each is a rule over real checks; only the first unlock time is stored.
+## 7. The sweep workflow failed every five minutes before anything was deployed
+**Symptom:** a red `Sweep` run in the Actions tab on every scheduled trigger, ending in `curl: (3) URL rejected: No host part in the URL`.
+**Cause:** the `API_URL` and `CRON_SECRET` repository secrets did not exist yet, so both expanded to empty strings.
+**Fix:** the workflow now checks for them first and exits with a warning annotation ("no sweep was triggered, see docs/DEPLOY.md step 6") instead of failing.
+**Lesson:** a scheduled job should say "not configured" rather than fail loudly forever; but keep the message visible, or a real misconfiguration hides.
