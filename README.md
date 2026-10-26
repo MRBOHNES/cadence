@@ -83,7 +83,7 @@ Configuration (all environment variables, see the `.env.example` files):
 
 ### Tests and checks
 
-The backend has **106 tests** (`pytest` collects them). They need Postgres running and use a separate `cadence_test` database, created automatically:
+The backend has **114 tests** (`pytest` collects them). They need Postgres running and use a separate `cadence_test` database, created automatically:
 
 ```bash
 cd backend
@@ -101,7 +101,7 @@ Regenerate the frontend API types after changing the backend schema (backend mus
 cd frontend && npm run gen:types
 ```
 
-Edit the monitored URLs in `backend/seed/monitors.json`. The seed runs on every deploy and updates monitors by `short_code`. Point it at your own services.
+Edit the monitored URLs in `backend/seed/monitors.json`. The seed runs on every deploy and makes the database match the file, matching monitors by `short_code`: new ones are added, changed ones updated, and ones no longer listed are **removed along with their history**. Avoid monitoring services on Render's free tier from the same Render workspace: every 5-minute check keeps them awake and spends the shared free hours (see [`docs/DEPLOY.md`](docs/DEPLOY.md)).
 
 ## API
 
@@ -115,12 +115,13 @@ curl "localhost:8000/monitors/1/latency?range=7d"  # 24h | 7d | 30d
 curl "localhost:8000/checks/recent?limit=12"
 curl localhost:8000/incidents
 curl localhost:8000/achievements
-curl -X POST -H "X-Cron-Secret: change-me" localhost:8000/internal/run-sweep
+curl -X POST localhost:8000/sweep                # the page's "sweep now" button (public, rate-limited)
+curl -X POST -H "X-Cron-Secret: change-me" localhost:8000/internal/run-sweep   # the cron
 ```
 
 Errors use a uniform `{"detail": "..."}` body: 4xx for bad input, 502/503/504 when the database misbehaves, 401 for a wrong cron secret and 503 if no cron secret is configured.
 
-`POST /internal/run-sweep` returns `{"sweep_id": N, "skipped": null}`, or `{"sweep_id": null, "skipped": "..."}` when it deliberately does nothing: another sweep holds the lock, or the previous one started under 2 minutes ago.
+Both sweep endpoints return `{"sweep_id": N, "skipped": null, "duration_ms": 5600}`, or `{"sweep_id": null, "skipped": "...", "duration_ms": null}` when they deliberately do nothing: another sweep holds the lock, or the previous one started under 2 minutes ago. The yellow countdown tag on the page is a button that calls `POST /sweep`; it needs no secret because those two rules already cap it at one sweep every 2 minutes, whoever presses it.
 
 ## Deploy
 

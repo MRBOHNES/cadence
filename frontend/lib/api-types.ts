@@ -123,6 +123,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/sweep": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sweep Now
+         * @description The page's "sweep now" button. Public, so no secret: the lock and the 2-minute gap in
+         *     try_sweep cap it at one sweep every 2 minutes no matter who calls it.
+         */
+        post: operations["sweep_now_sweep_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/internal/run-sweep": {
         parameters: {
             query?: never;
@@ -292,6 +313,8 @@ export interface components {
             latest_sweep: number | null;
             /** Latest Sweep At */
             latest_sweep_at: string | null;
+            /** Latest Sweep Duration Ms */
+            latest_sweep_duration_ms: number | null;
             /** Next Sweep At */
             next_sweep_at: string | null;
             /** Streak Days */
@@ -307,6 +330,8 @@ export interface components {
             sweep_id: number | null;
             /** Skipped */
             skipped: string | null;
+            /** Duration Ms */
+            duration_ms: number | null;
         };
         /** ValidationError */
         ValidationError: {
@@ -503,6 +528,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AchievementOut"][];
+                };
+            };
+        };
+    };
+    sweep_now_sweep_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SweepResult"];
                 };
             };
         };

@@ -36,6 +36,9 @@ flowchart LR
   2 minutes ago. Without that, a retried or overlapping request could record one outage twice and open an incident
   that the 2-failure rule was meant to prevent.
 - `POST /internal/run-sweep` refuses to run (503) when `CRON_SECRET` is unset, so a missing setting fails closed.
+- The page's countdown tag is also a **sweep now** button (`POST /sweep`). It is public, so it takes no secret; the lock
+  and the 2-minute gap are what limit it. Both endpoints share `try_sweep()` in `backend/app/sweep.py`, so the rules
+  cannot drift apart. Each sweep's duration (finished minus started) is shown in the header.
 
 ## Module map
 
@@ -44,14 +47,15 @@ flowchart LR
 | `backend/app/main.py` | FastAPI app, CORS, router wiring |
 | `backend/app/config.py` | Settings from the environment; rewrites Neon's connection string for asyncpg |
 | `backend/app/db.py`, `models.py` | Async engine and session; tables `Monitor`, `Check`, `Sweep`, `Incident` and the achievements |
-| `backend/app/sweep.py` | The sweep: parallel checks, storing results, opening and resolving incidents |
+| `backend/app/sweep.py` | The sweep: parallel checks, storing results, opening and resolving incidents; `try_sweep()` adds the lock and the 2-minute gap |
 | `backend/app/queries.py` | SQL aggregates (uptime, percentiles, daily history) |
 | `backend/app/game.py` | Streaks, HP, rank and achievements, computed from real checks |
 | `backend/app/routers/read.py` | The public read endpoints |
-| `backend/app/routers/internal.py` | `POST /internal/run-sweep`: secret check, one-at-a-time lock, minimum gap |
+| `backend/app/routers/internal.py` | `POST /internal/run-sweep` for the cron, guarded by `X-Cron-Secret` |
+| `backend/app/routers/sweep_now.py` | `POST /sweep`, the public button; rate-limited by `try_sweep()` |
 | `backend/app/clock.py` | The current-time dependency, overridden in tests to pin the clock |
 | `backend/app/errors.py`, `schemas.py` | Uniform `{"detail": ...}` errors; Pydantic response models |
-| `backend/migrations/`, `scripts/seed.py`, `seed/monitors.json` | Alembic migrations and the monitor seed (upserts by `short_code` on every deploy) |
+| `backend/migrations/`, `scripts/seed.py`, `seed/monitors.json` | Alembic migrations and the monitor seed: on every deploy it makes the table match the file (add, update, remove by `short_code`) |
 | `frontend/app/page.tsx` | Server-rendered page (`revalidate = 60`) that loads the first data |
 | `frontend/components/` | Dashboard and its sections; see [`frontend/README.md`](../frontend/README.md) |
 | `frontend/lib/` | API client, generated API types, formatting, a ticking clock hook |
@@ -77,3 +81,6 @@ flowchart LR
 **Accessibility over exact colours for small text.** The specified teal and orange are about 4.1:1 and 3.7:1 against the panel colour, below the 4.5:1 target for small text. Small status text is therefore charcoal with a coloured square beside it; the exact colours are used for shapes, charts and large type. Lighthouse accessibility: 100.
 
 **Free-tier limits.** Neon and Render free tiers sleep and have storage and compute caps; GitHub's cron is best-effort and was observed running hours apart. For a production service you would move to a paid always-on instance and a real scheduler.
+
+**What to monitor on free tiers.** Render gives each workspace 750 free instance hours a month, shared by all its free services, and suspends them all when the hours run out. A free service sleeps after 15 idle minutes, but a check every 5 minutes means it never does: the Cadence API alone uses about 744 hours. So Cadence monitors services hosted elsewhere (Vercel, GitHub). Monitoring another free Render service from the same workspace would double the usage and take both offline around mid-month.
+

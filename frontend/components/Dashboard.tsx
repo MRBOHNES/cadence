@@ -31,7 +31,7 @@ export function Dashboard({ initial }: { initial: DashboardData | null }) {
   useEffect(() => {
     nextSweepAt.current = data?.summary.next_sweep_at ?? null;
   }, [data]);
-  const [attempt, setAttempt] = useState(0); // bumped by "Try again" to re-run the effect
+  const [attempt, setAttempt] = useState(0); // bumped by "Try again" or a manual sweep to reload now
 
   useEffect(() => {
     let active = true;
@@ -71,7 +71,7 @@ export function Dashboard({ initial }: { initial: DashboardData | null }) {
 
   return (
     <div className="mx-auto flex max-w-[1280px] flex-col gap-[14px] px-4 py-5 desk:px-7">
-      <Header data={data} />
+      <Header data={data} onSwept={() => setAttempt((n) => n + 1)} />
       {!data && (failed ? <ErrorState onRetry={retry} /> : <DashboardSkeleton />)}
       {data && isEmpty && <EmptyState />}
       {data && !isEmpty && (

@@ -45,7 +45,8 @@ a backend: the page catches the failed fetch and builds its empty state.
 app/          layout, the page, global styles
 components/   Dashboard and its sections: Header, KpiStrip, LatencyChart, HistoryBars, CheckLog,
               IncidentPanel, Leaderboard, Achievements, Footer, plus small pieces (Blocks: HP and
-              streak bars, Marker: status text with a coloured square, PixelIcon, States)
+              streak bars, Marker: status text with a coloured square, PixelIcon, States,
+              SweepButton: the countdown tag that runs a sweep on click)
 lib/          api.ts (typed client), api-types.ts (generated, do not edit), format.ts, useNow.ts
 ```
 

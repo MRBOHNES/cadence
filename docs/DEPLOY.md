@@ -44,4 +44,5 @@ both to call:
 - GitHub's cron is best-effort and was observed running hours apart on this repo.
 - GitHub disables scheduled workflows after 60 days without repository activity; re-enable **Sweep** in the Actions tab.
 - Until the two GitHub secrets exist, the Sweep workflow logs a warning and does nothing.
-- Changing monitored URLs: edit `backend/seed/monitors.json` and redeploy (the seed updates by `short_code`).
+- Changing monitored URLs: edit `backend/seed/monitors.json` and redeploy. The seed matches by `short_code` and removes monitors that are no longer listed, together with their history.
+- **Render free hours:** 750 per workspace per month, shared by every free service, and all of them are suspended when the hours run out. Sweeping every 5 minutes keeps the Cadence API awake (about 744 hours), so do not monitor other free Render services in the same workspace; each would also stay awake 24/7.

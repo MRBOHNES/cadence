@@ -26,6 +26,15 @@ async function get<T>(path: string, init?: RequestInit): Promise<T> {
   return response.json() as Promise<T>;
 }
 
+export type SweepResult = components["schemas"]["SweepResult"];
+
+/** The page's "sweep now" button. The API rate-limits it to one sweep every 2 minutes. */
+export async function triggerSweep(): Promise<SweepResult> {
+  const response = await fetch(`${API_URL}/sweep`, { method: "POST", cache: "no-store" });
+  if (!response.ok) throw new Error(`/sweep responded ${response.status}`);
+  return response.json() as Promise<SweepResult>;
+}
+
 /**
  * Loads everything the page shows. `init` carries Next's caching options on the server
  * (`{ next: { revalidate: 60 } }`) and is omitted in the browser.

@@ -42,3 +42,9 @@ A Postgres advisory lock taken inside the sweep's transaction, so it is released
 **What happens if `CRON_SECRET` is not set?**
 The endpoint refuses with 503. An earlier version defaulted to a placeholder, which would have let anyone trigger sweeps; security settings should fail closed.
 
+**Isn't a public "sweep now" button a way to abuse the service?**
+It can trigger at most one sweep every 2 minutes, because every sweep goes through the same advisory lock and minimum gap, whoever calls it. A sweep is a handful of GET requests, so the worst case is cheap. The secret-protected endpoint stays for the cron.
+
+**Why did you stop monitoring the ClaimSage API?**
+It runs on Render's free tier in the same workspace. Free instance hours are shared, and a 5-minute check keeps a service awake around the clock, so monitoring it would have exhausted the hours mid-month and suspended both services. Cadence now monitors services hosted on Vercel and GitHub instead.
+

@@ -1,7 +1,8 @@
 "use client";
 
 import type { Dashboard } from "@/lib/api";
-import { ago, countdown, istTime } from "@/lib/format";
+import { SweepButton } from "./SweepButton";
+import { ago, countdown, duration, istTime } from "@/lib/format";
 import { useNow } from "@/lib/useNow";
 
 // The cron is best-effort, so the countdown is a prediction. Past it, say "due" rather than
@@ -18,7 +19,7 @@ function overallState(monitors: Dashboard["monitors"]) {
   return { label: "ALL UP", color: "var(--up)" };
 }
 
-export function Header({ data }: { data: Dashboard | null }) {
+export function Header({ data, onSwept }: { data: Dashboard | null; onSwept: () => void }) {
   const now = useNow();
   const state = data ? overallState(data.monitors) : null;
   const nextAt = data?.summary.next_sweep_at ?? null;
@@ -41,18 +42,13 @@ export function Header({ data }: { data: Dashboard | null }) {
         {data?.summary.latest_sweep != null && (
           <span className="font-mono text-[12px] text-muted">
             sweep #{data.summary.latest_sweep}
+            {data.summary.latest_sweep_duration_ms != null && ` · took ${duration(data.summary.latest_sweep_duration_ms)}`}
             {stale && lastAt && now !== null && ` · ${ago(lastAt, now)}`}
           </span>
         )}
         <span className="flex items-center gap-2 font-mono text-[12px] text-muted">
           next
-          <span
-            role="timer"
-            aria-label={due ? "Next sweep is due" : "Time until next sweep"}
-            className="doto border border-ink bg-hl px-2 py-1 text-[18px] text-[var(--hl-ink)]"
-          >
-            {now === null ? "--:--" : due ? "DUE" : countdown(nextAt, now)}
-          </span>
+          <SweepButton label={now === null ? "--:--" : due ? "DUE" : countdown(nextAt, now)} due={due} onSwept={onSwept} />
         </span>
         <span className="flex items-baseline gap-2">
           <span className="doto text-[18px]" suppressHydrationWarning>
