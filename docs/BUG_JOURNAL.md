@@ -57,3 +57,9 @@ Real problems hit while building Cadence, and what they taught. For short answer
 **Cause:** the workflow retries once after a 150 s client timeout. If the first request had in fact completed, the retry ran a second sweep about 2.5 minutes later, so two failures could open an incident sooner than the 2-failure rule intends. A manual run overlapping the cron had the same effect.
 **Fix:** a Postgres advisory lock allows one sweep at a time, and a sweep that starts under 2 minutes after the previous one is skipped with a reason, with tests for both.
 
+
+## 11. API and database on opposite sides of the Pacific
+**Symptom:** `/summary` took about 3 seconds on the live API.
+**Cause:** the Render service was created from a commit without `region:`, so it landed in Render's default (Oregon), while the Neon database was in Singapore. One request runs several queries, and each crossed the ocean.
+**Fix:** moved the database to Neon's Oregon region and set `region: oregon` in `render.yaml`. Render fixes the region when a service is created, so it was easier to move the database than the API.
+**Lesson:** put the app and its database in the same region, and check the region after the first deploy.

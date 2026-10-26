@@ -4,7 +4,8 @@ Do the steps in order: each needs a value from the one before. Everything runs o
 
 ## 1. Neon (database)
 1. Sign up at https://neon.tech and create a project in the same region as Render. `render.yaml` uses
-   **Singapore**, so pick AWS Asia Pacific (Singapore).
+   **Oregon**, so pick AWS US West 2 (Oregon). The API queries the database many times per request, so keeping
+   them together matters far more than being close to visitors.
 2. Copy the connection string (`postgresql://...`). Use it as-is: the app converts it for asyncpg.
 
 ## 2. Cron secret
@@ -16,7 +17,7 @@ API refuses to run sweeps.
 2. Set `DATABASE_URL` (Neon string), `CRON_SECRET`, and `CORS_ORIGIN` (any placeholder for now).
 3. Deploy. On every start the container runs migrations, upserts the seed monitors, then serves.
 4. Check `<render-url>/health` returns `{"status":"ok"}`.
-5. Check the service's **Settings** page shows region **Singapore**. Render sets the region only when a service is
+5. Check the service's **Settings** page shows region **Oregon**. Render sets the region only when a service is
    created, so if it shows another region, delete the service and create the Blueprint again.
 
 ## 4. Vercel (web)
