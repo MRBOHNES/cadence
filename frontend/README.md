@@ -53,4 +53,3 @@ lib/          api.ts (typed client), api-types.ts (generated, do not edit), form
 
 - No chart library: the charts are small SVG components.
 - Small status text is charcoal with a coloured square beside it, because the teal and orange fall below 4.5:1 contrast on the panel colour at that size (see `components/Marker.tsx` and the bug journal).
-- `AGENTS.md` in this folder holds instructions for coding assistants working in this directory.

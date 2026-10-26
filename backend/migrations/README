@@ -1,1 +1,6 @@
-Generic single-database configuration with an async dbapi.
+Alembic migrations for the Cadence database (async SQLAlchemy + asyncpg).
+
+    uv run alembic upgrade head                              # apply
+    uv run alembic revision --autogenerate -m "describe it"  # after changing app/models.py
+
+The database URL comes from DATABASE_URL (see env.py), never from alembic.ini.

@@ -1,5 +1,6 @@
 [project]
-name = "backend"
+name = "cadence-backend"
+description = "Cadence API: sweeps, incidents and status data"
 version = "0.1.0"
 requires-python = ">=3.13"
 dependencies = [
