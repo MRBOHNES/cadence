@@ -290,6 +290,8 @@ export interface components {
             failed_24h: number;
             /** Latest Sweep */
             latest_sweep: number | null;
+            /** Latest Sweep At */
+            latest_sweep_at: string | null;
             /** Next Sweep At */
             next_sweep_at: string | null;
             /** Streak Days */
@@ -298,6 +300,13 @@ export interface components {
             best_streak_days: number;
             /** Open Incidents */
             open_incidents: number;
+        };
+        /** SweepResult */
+        SweepResult: {
+            /** Sweep Id */
+            sweep_id: number | null;
+            /** Skipped */
+            skipped: string | null;
         };
         /** ValidationError */
         ValidationError: {
@@ -515,9 +524,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: number;
-                    };
+                    "application/json": components["schemas"]["SweepResult"];
                 };
             };
             /** @description Validation Error */

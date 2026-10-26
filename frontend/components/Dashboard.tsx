@@ -81,7 +81,7 @@ export function Dashboard({ initial }: { initial: DashboardData | null }) {
           <div className="grid gap-[14px] desk:grid-cols-12">
             <div className="grid gap-[14px] desk:col-span-8 desk:grid-cols-2">
               {data.monitors.map((m) => (
-                <LatencyChart key={m.id} name={m.name} series={data.latency[m.id]} />
+                <LatencyChart key={m.id} name={m.name} series={data.latency[m.id]} asOf={data.fetchedAt} />
               ))}
             </div>
             <div className="desk:col-span-4">

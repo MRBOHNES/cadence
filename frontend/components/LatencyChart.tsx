@@ -10,20 +10,23 @@ const TOP = 8;
 const BOTTOM = 118;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-export function LatencyChart({ name, series }: { name: string; series: LatencySeries }) {
-  const points = series.points.map((p) => ({ t: new Date(p.t).getTime(), v: p.latency_ms }));
+export function LatencyChart({ name, series, asOf }: { name: string; series: LatencySeries; asOf: string }) {
+  // The right edge is the moment the data was loaded, so a gap since the last sweep shows as a gap.
+  const end = new Date(asOf).getTime();
+  const points = series.points
+    .map((p) => ({ t: new Date(p.t).getTime(), v: p.latency_ms }))
+    .filter((p) => p.t >= end - DAY_MS && p.t <= end);
   const peak = points.reduce((a, b) => (b.v > a.v ? b : a), points[0]);
 
   // Axis tops out at 600 ms (labels 600/300/0) and grows in 300 ms steps if a spike exceeds it.
   const yMax = Math.max(600, Math.ceil((peak?.v ?? 0) / 300) * 300);
-  // The right edge is the newest point, so the drawing is the same on server and client.
-  const end = points.length ? points[points.length - 1].t : 0;
   const x = (t: number) => LEFT + ((t - (end - DAY_MS)) / DAY_MS) * (RIGHT - LEFT);
   const y = (v: number) => BOTTOM - (v / yMax) * (BOTTOM - TOP);
 
   const line = points.map((p, i) => `${i ? "L" : "M"}${x(p.t).toFixed(1)} ${y(p.v).toFixed(1)}`).join(" ");
+  // Close the fill under the last point, not at "now", so a gap since the last sweep stays empty.
   const area = points.length
-    ? `${line} L${x(end).toFixed(1)} ${BOTTOM} L${x(points[0].t).toFixed(1)} ${BOTTOM} Z`
+    ? `${line} L${x(points[points.length - 1].t).toFixed(1)} ${BOTTOM} L${x(points[0].t).toFixed(1)} ${BOTTOM} Z`
     : "";
 
   const description = points.length

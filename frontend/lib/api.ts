@@ -14,6 +14,8 @@ export type Dashboard = {
   checks: RecentCheck[];
   incidents: Incident[];
   achievements: Achievement[];
+  // When this data was loaded. Charts end here, so server HTML and hydration draw the same "now".
+  fetchedAt: string;
 };
 
 export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
@@ -29,6 +31,7 @@ async function get<T>(path: string, init?: RequestInit): Promise<T> {
  * (`{ next: { revalidate: 60 } }`) and is omitted in the browser.
  */
 export async function loadDashboard(init?: RequestInit): Promise<Dashboard> {
+  const fetchedAt = new Date().toISOString();
   const [summary, monitors, checks, incidents, achievements] = await Promise.all([
     get<Summary>("/summary", init),
     get<Monitor[]>("/monitors", init),
@@ -46,5 +49,6 @@ export async function loadDashboard(init?: RequestInit): Promise<Dashboard> {
     incidents,
     achievements,
     latency: Object.fromEntries(series.map((s) => [s.monitor_id, s])),
+    fetchedAt,
   };
 }
