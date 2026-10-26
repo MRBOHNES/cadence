@@ -4,7 +4,7 @@ Short answers about how Cadence is built. The reasoning is in [`ARCHITECTURE.md`
 shaped it are in [`BUG_JOURNAL.md`](BUG_JOURNAL.md).
 
 **Why a cron from GitHub instead of an in-process scheduler?**
-The free API sleeps, and an in-process timer sleeps with it. GitHub's cron wakes it from outside, costs nothing and every run is visible. The price is that timing is best-effort.
+The free API sleeps, and an in-process timer sleeps with it. GitHub's cron wakes it from outside, costs nothing and every run is visible. The price is timing: on this repo it ran hours apart, so the page shows when data is stale and the docs describe an external pinger as the upgrade.
 
 **Why two failures to open an incident?**
 Fewer false alarms for at most 5 minutes of detection delay. The incident's start is backdated to the first failure so its duration is still honest.
@@ -35,3 +35,10 @@ It does not as-is: asyncpg needs the `postgresql+asyncpg://` scheme, calls the S
 
 **Why does the Sweep workflow not fail when secrets are missing?**
 So an unconfigured repo does not create a red run every five minutes. It logs a warning annotation and exits; once `API_URL` and `CRON_SECRET` exist it fails normally on any real error.
+
+**What stops two sweeps from running at once?**
+A Postgres advisory lock taken inside the sweep's transaction, so it is released on commit or rollback. A sweep is also skipped if the previous one started under 2 minutes ago, which keeps a retried request from counting one outage twice.
+
+**What happens if `CRON_SECRET` is not set?**
+The endpoint refuses with 503. An earlier version defaulted to a placeholder, which would have let anyone trigger sweeps; security settings should fail closed.
+

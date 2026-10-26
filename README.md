@@ -4,10 +4,11 @@
 
 Cadence watches a handful of URLs, checks them every five minutes, and publishes the results on a dense public status page: uptime, latency percentiles, incidents, and a small game layer (streaks, HP, achievements) computed from real data.
 
-**Live demo:** not deployed yet. The runbook is [`docs/DEPLOY.md`](docs/DEPLOY.md); the live links and a screenshot are added to this README after the first deploy.
+- **Live status page:** https://frontend-two-peach-54.vercel.app
+- **API:** https://cadence-api-ps0o.onrender.com ([interactive docs](https://cadence-api-ps0o.onrender.com/docs))
 
-> Once deployed on the free tiers, the first load can take up to a minute because the Render backend sleeps when idle.
-> The page is server-rendered and cached, so visitors still see the last results while it wakes up.
+> The API runs on Render's free tier, which sleeps when idle, so the first request after a pause can take up to a
+> minute. The page is server-rendered and cached, so visitors still see the last results while it wakes up.
 
 ## Architecture
 
@@ -60,7 +61,8 @@ uv run alembic upgrade head
 uv run python -m scripts.seed          # monitors come from seed/monitors.json
 uv run uvicorn app.main:app --reload   # http://localhost:8000/docs
 
-# 3. Trigger a sweep (any time; the cron does this in production)
+# 3. Trigger a sweep (the cron does this in production). Sweeps less than 2 minutes apart
+#    are skipped on purpose, so wait between manual runs.
 curl -X POST -H "X-Cron-Secret: change-me" localhost:8000/internal/run-sweep
 
 # 4. Frontend
@@ -75,13 +77,13 @@ Configuration (all environment variables, see the `.env.example` files):
 | Variable | Where | Purpose |
 | --- | --- | --- |
 | `DATABASE_URL` | backend | Postgres connection string (Neon's plain URL works) |
-| `CRON_SECRET` | backend + GitHub secret | Shared secret for `POST /internal/run-sweep` |
+| `CRON_SECRET` | backend + GitHub secret | Shared secret for `POST /internal/run-sweep`. Required: if unset, sweeps are refused (503) |
 | `CORS_ORIGIN` | backend | The only browser origin allowed to call the API |
 | `NEXT_PUBLIC_API_URL` | frontend | Base URL of the API |
 
 ### Tests and checks
 
-The backend has **103 tests** (`pytest` collects them). They need Postgres running and use a separate `cadence_test` database, created automatically:
+The backend has **106 tests** (`pytest` collects them). They need Postgres running and use a separate `cadence_test` database, created automatically:
 
 ```bash
 cd backend
@@ -116,7 +118,9 @@ curl localhost:8000/achievements
 curl -X POST -H "X-Cron-Secret: change-me" localhost:8000/internal/run-sweep
 ```
 
-Errors use a uniform `{"detail": "..."}` body: 4xx for bad input, 502/503/504 when the database misbehaves, and 401 for a wrong cron secret.
+Errors use a uniform `{"detail": "..."}` body: 4xx for bad input, 502/503/504 when the database misbehaves, 401 for a wrong cron secret and 503 if no cron secret is configured.
+
+`POST /internal/run-sweep` returns `{"sweep_id": N, "skipped": null}`, or `{"sweep_id": null, "skipped": "..."}` when it deliberately does nothing: another sweep holds the lock, or the previous one started under 2 minutes ago.
 
 ## Deploy
 
@@ -130,13 +134,13 @@ Short version (full runbook in [`docs/DEPLOY.md`](docs/DEPLOY.md)):
 ## Limitations
 
 - The free Neon and Render tiers sleep and have storage and compute caps, so the first request after idle is slow.
-- GitHub's cron is best-effort: "every 5 minutes" can slip by a few minutes, and runs may be throttled on busy days.
+- **The scheduler is the weak point.** GitHub's cron is best-effort, and on this new, low-activity repo the observed gaps were hours, not 5 minutes (two scheduled runs in about five hours on the first day). The page says so honestly (the countdown shows `DUE` and the last sweep's age) instead of pretending. [`docs/DEPLOY.md`](docs/DEPLOY.md) describes an optional external pinger for steadier timing.
+- GitHub disables scheduled workflows in a public repo after 60 days without repository activity. Re-enable **Sweep** in the Actions tab if that happens; GitHub emails the owner first.
 - Nothing in the repo authenticates visitors; the dashboard is a public read-only page by design.
-- It is not deployed yet, so the numbers above describe the code and tests, not a running instance.
 
 ## Status
 
-All of the v1 scope is built: sweeps, incidents, the read API, the game layer, the dashboard with its loading, empty, error and incident states, CI, and the cron workflow. Deployment and the live links are the remaining manual steps.
+All of the v1 scope is built and deployed: sweeps, incidents, the read API, the game layer, the dashboard with its loading, empty, error and incident states, CI and the cron workflow. A screenshot will be added once the live instance has a day of data.
 
 ## Repo layout
 

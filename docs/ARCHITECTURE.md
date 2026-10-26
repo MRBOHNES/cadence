@@ -32,6 +32,10 @@ flowchart LR
 - An **incident** opens after 2 consecutive failures and resolves on the next success. Its start time is backdated to the
   first failure.
 - Uptime, p50/p95 latency (`percentile_cont`) and the daily history are computed in SQL, not in Python.
+- Only one sweep runs at a time (a Postgres advisory lock), and a sweep is skipped if the previous one started under
+  2 minutes ago. Without that, a retried or overlapping request could record one outage twice and open an incident
+  that the 2-failure rule was meant to prevent.
+- `POST /internal/run-sweep` refuses to run (503) when `CRON_SECRET` is unset, so a missing setting fails closed.
 
 ## Module map
 
@@ -44,7 +48,8 @@ flowchart LR
 | `backend/app/queries.py` | SQL aggregates (uptime, percentiles, daily history) |
 | `backend/app/game.py` | Streaks, HP, rank and achievements, computed from real checks |
 | `backend/app/routers/read.py` | The public read endpoints |
-| `backend/app/routers/internal.py` | `POST /internal/run-sweep`, guarded by `X-Cron-Secret` |
+| `backend/app/routers/internal.py` | `POST /internal/run-sweep`: secret check, one-at-a-time lock, minimum gap |
+| `backend/app/clock.py` | The current-time dependency, overridden in tests to pin the clock |
 | `backend/app/errors.py`, `schemas.py` | Uniform `{"detail": ...}` errors; Pydantic response models |
 | `backend/migrations/`, `scripts/seed.py`, `seed/monitors.json` | Alembic migrations and the monitor seed (upserts by `short_code` on every deploy) |
 | `frontend/app/page.tsx` | Server-rendered page (`revalidate = 60`) that loads the first data |
@@ -53,7 +58,9 @@ flowchart LR
 
 ## Decisions & trade-offs
 
-**Scheduler: GitHub Actions cron.** Free, visible (every run and failure is in the Actions tab), and needs no extra infrastructure. The cost: timing is best-effort (GitHub can start runs minutes late, so "every 5 minutes" is approximate), and Render's free tier sleeps, so the first call after idle waits through a cold start. The workflow uses a 150 s timeout and one retry to absorb that. The alternative, an in-process scheduler, would not survive the service sleeping, which is exactly when you need it.
+**Scheduler: GitHub Actions cron.** Free, visible (every run and failure is in the Actions tab), and needs no extra infrastructure. The alternative, an in-process scheduler, would not survive the free service sleeping, which is exactly when you need it. The cost turned out to be larger than expected: on a new, low-activity repo GitHub ran the `*/5` schedule hours apart, not every 5 minutes. Scheduled workflows are also disabled after 60 days without repository activity. The workflow uses a 150 s timeout and one retry to survive Render's cold start, and the API's 2-minute minimum gap stops that retry from counting a failure twice. For steadier timing, an external pinger can call the same endpoint (see [`DEPLOY.md`](DEPLOY.md)).
+
+**Honest time on the page.** Because sweeps can be late, the header's countdown switches to `DUE` once the predicted time passes, and shows the last sweep's age when it is more than 10 minutes old. Each latency chart ends at the moment the data was loaded, so a gap since the last sweep is visible as a gap rather than being stretched to "now".
 
 **The 2-failure rule.** One failed check is often a blip (a dropped packet, a deploy). Requiring two consecutive failures trades up to 5 minutes of detection delay for far fewer false alarms. The incident's start time is backdated to the first failure so durations stay honest.
 
@@ -63,8 +70,10 @@ flowchart LR
 
 **No chart library.** The charts are small SVG components (a path, an area, a few gridlines). This keeps the bundle small, avoids a dependency to maintain, and makes every pixel match the design.
 
+**Chart axis (a deliberate deviation from the design).** The design fixes the y-axis at 600 / 300 / 0 ms. The axis keeps that scale normally, but grows in 300 ms steps when a spike goes above 600 ms. Clipping the spike at the top edge would hide exactly the event the orange dot is there to mark.
+
 **Honest game layer.** Achievements that cover a window (30 days, 7 days) stay locked until the data actually spans that window, so a fresh deployment cannot "unlock" a perfect month on day one. Only unlock timestamps are stored; whether a rule holds is always recomputed from checks.
 
 **Accessibility over exact colours for small text.** The specified teal and orange are about 4.1:1 and 3.7:1 against the panel colour, below the 4.5:1 target for small text. Small status text is therefore charcoal with a coloured square beside it; the exact colours are used for shapes, charts and large type. Lighthouse accessibility: 100.
 
-**Free-tier limits.** Neon and Render free tiers sleep and have storage and compute caps; GitHub cron may be throttled on busy days. For a production service you would move to a paid always-on instance and a real scheduler.
+**Free-tier limits.** Neon and Render free tiers sleep and have storage and compute caps; GitHub's cron is best-effort and was observed running hours apart. For a production service you would move to a paid always-on instance and a real scheduler.

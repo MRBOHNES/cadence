@@ -34,8 +34,26 @@ Real problems hit while building Cadence, and what they taught. For short answer
 **Cause:** `sh -c "... && uvicorn ..."` kept the shell as PID 1.
 **Fix:** `exec uvicorn`, so the server receives SIGTERM.
 
-## 7. The sweep workflow failed every five minutes before anything was deployed
-**Symptom:** a red `Sweep` run in the Actions tab on every scheduled trigger, ending in `curl: (3) URL rejected: No host part in the URL`.
+## 7. The sweep workflow failed before anything was deployed
+**Symptom:** a red `Sweep` run in the Actions tab on each scheduled trigger, ending in `curl: (3) URL rejected: No host part in the URL`.
 **Cause:** the `API_URL` and `CRON_SECRET` repository secrets did not exist yet, so both expanded to empty strings.
 **Fix:** the workflow now checks for them first and exits with a warning annotation ("no sweep was triggered, see docs/DEPLOY.md step 6") instead of failing.
 **Lesson:** a scheduled job should say "not configured" rather than fail loudly forever; but keep the message visible, or a real misconfiguration hides.
+
+## 8. "Every 5 minutes" turned out to be every few hours
+**Symptom:** after deploying, the live page showed one sweep for hours, and the countdown sat at `00:00`.
+**Cause:** GitHub's scheduled workflows are best-effort. On this new, low-activity repo the `*/5` schedule ran twice in about five hours.
+**Fix:** not fixable from the repo. The page now tells the truth (`DUE`, the last sweep's age, charts that end at load time), the docs describe the real behaviour, and `DEPLOY.md` documents an external pinger.
+**Lesson:** test the scheduler you will actually run in production; the documented behaviour was optimistic.
+
+## 9. A missing secret would have opened the sweep endpoint (found in review)
+**Symptom:** none in production; found while auditing the code.
+**Cause:** `cron_secret` defaulted to `"change-me"`, so a deploy without `CRON_SECRET` would accept a value anyone can read in the repo.
+**Fix:** no default. With the secret unset the endpoint returns 503, and a test pins that.
+**Lesson:** security settings should fail closed.
+
+## 10. A retried request could count one outage twice (found in review)
+**Symptom:** none observed; found while auditing the cron retry.
+**Cause:** the workflow retries once after a 150 s client timeout. If the first request had in fact completed, the retry ran a second sweep about 2.5 minutes later, so two failures could open an incident sooner than the 2-failure rule intends. A manual run overlapping the cron had the same effect.
+**Fix:** a Postgres advisory lock allows one sweep at a time, and a sweep that starts under 2 minutes after the previous one is skipped with a reason, with tests for both.
+
