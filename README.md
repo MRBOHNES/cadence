@@ -7,6 +7,8 @@ Cadence watches a handful of URLs, checks them every five minutes, and publishes
 - **Live status page:** https://cadence-status.vercel.app
 - **API:** https://cadence-api-ps0o.onrender.com ([interactive docs](https://cadence-api-ps0o.onrender.com/docs))
 
+![The Cadence status page: KPI strip, latency charts per service, recent checks, leaderboard and achievements](docs/screenshot.png)
+
 > The API runs on Render's free tier, which sleeps when idle, so the first request after a pause can take up to a
 > minute. The page is server-rendered and cached, so visitors still see the last results while it wakes up.
 
@@ -141,7 +143,7 @@ Short version (full runbook in [`docs/DEPLOY.md`](docs/DEPLOY.md)):
 
 ## Status
 
-All of the v1 scope is built and deployed: sweeps, incidents, the read API, the game layer, the dashboard with its loading, empty, error and incident states, CI and the cron workflow. A screenshot will be added once the live instance has a day of data.
+All of the v1 scope is built and deployed: sweeps, incidents, the read API, the game layer, the dashboard with its loading, empty, error and incident states, CI and the cron workflow. The screenshot above is the live page after three days of real data.
 
 ## Repo layout
 
