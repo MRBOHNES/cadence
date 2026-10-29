@@ -137,7 +137,7 @@ Short version (full runbook in [`docs/DEPLOY.md`](docs/DEPLOY.md)):
 ## Limitations
 
 - The free Neon and Render tiers sleep and have storage and compute caps, so the first request after idle is slow.
-- **The scheduler is the weak point.** GitHub's cron is best-effort, and on this new, low-activity repo the observed gaps were hours, not 5 minutes (two scheduled runs in about five hours on the first day). The page says so honestly (the countdown shows `DUE` and the last sweep's age) instead of pretending. [`docs/DEPLOY.md`](docs/DEPLOY.md) describes an optional external pinger for steadier timing.
+- **The scheduler is the weak point.** GitHub's cron is best-effort, and on this new, low-activity repo the observed gaps were hours, not 5 minutes (two scheduled runs in about five hours on the first day). So the page fills the gap: when a sweep is due and someone has the page open, the page runs it itself (through the same rate-limited `POST /sweep` as the button). The trade-off is that sweeps happen mostly while someone is watching; with nobody on the page, the gaps remain, and an outage then could go unrecorded. [`docs/DEPLOY.md`](docs/DEPLOY.md) describes an external pinger for a steady cadence.
 - GitHub disables scheduled workflows in a public repo after 60 days without repository activity. Re-enable **Sweep** in the Actions tab if that happens; GitHub emails the owner first.
 - Nothing in the repo authenticates visitors; the dashboard is a public read-only page by design.
 

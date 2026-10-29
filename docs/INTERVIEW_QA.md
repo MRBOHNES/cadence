@@ -51,3 +51,6 @@ It runs on Render's free tier in the same workspace. Free instance hours are sha
 **Why does the KPI strip show the slowest service instead of an overall median?**
 Percentiles over unrelated services are meaningless: one cold-starting API dominated the pooled p95. Naming the slowest service's p95 points at something you can act on, and the per-service charts carry the rest.
 
+**If GitHub's cron is unreliable, how do sweeps keep happening?**
+The page itself acts as a scheduler: once the predicted sweep time passes, an open page calls the same rate-limited endpoint as the button. Several tabs are safe because the database lock lets one sweep run and tells the others to just reload. The honest limit: with nobody on the page and a late cron, nothing runs, so an outage at that time could be missed.
+

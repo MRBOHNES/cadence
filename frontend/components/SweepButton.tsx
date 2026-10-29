@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { triggerSweep } from "@/lib/api";
 import { duration } from "@/lib/format";
 
@@ -14,15 +14,22 @@ type Status =
  * The yellow countdown tag doubles as a "sweep now" button. `label` is what the tag shows when
  * idle (the countdown, or DUE). The API allows one sweep every 2 minutes, so repeat clicks are
  * answered with a reason instead of running again.
+ *
+ * It also runs a sweep by itself once a sweep is due, because GitHub's cron often arrives hours
+ * late. That makes any open page the scheduler: one attempt per due time (`dueAt`), after a short
+ * random delay so several open tabs don't fire together. The server's lock and 2-minute gap
+ * decide the rest; if another tab got there first, this one just reloads the new data.
  */
 export function SweepButton({
   label,
   due,
+  dueAt,
   latestSweep,
   onSwept,
 }: {
   label: string;
   due: boolean;
+  dueAt: string | null; // the predicted sweep time; one automatic attempt per value
   latestSweep: number | null; // what the header currently shows
   onSwept: () => void;
 }) {
@@ -39,11 +46,17 @@ export function SweepButton({
         ? status.text
         : "";
 
-  async function sweep() {
+  async function sweep(auto = false) {
     setStatus({ kind: "running" });
     try {
       const result = await triggerSweep();
-      if (result.sweep_id === null) {
+      if (result.sweep_id === null && auto) {
+        // Another tab's sweep is running or just ran: nothing to report, just show its result.
+        // Reload now and again once that sweep must have finished (each check times out at 10 s).
+        setStatus({ kind: "idle" });
+        onSwept();
+        setTimeout(onSwept, 12_000);
+      } else if (result.sweep_id === null) {
         setStatus({ kind: "skipped", text: result.skipped ?? "skipped" });
       } else {
         const took = result.duration_ms === null ? "" : ` in ${duration(result.duration_ms)}`;
@@ -55,11 +68,24 @@ export function SweepButton({
     }
   }
 
+  // The effect below must call the latest `sweep` without re-running whenever it changes.
+  const sweepRef = useRef(sweep);
+  useEffect(() => {
+    sweepRef.current = sweep;
+  });
+  const triedFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (!due || dueAt === null || triedFor.current === dueAt) return;
+    triedFor.current = dueAt;
+    const id = setTimeout(() => void sweepRef.current(true), 500 + Math.random() * 2500);
+    return () => clearTimeout(id);
+  }, [due, dueAt]);
+
   return (
     <span className="flex items-center gap-2">
       <button
         type="button"
-        onClick={sweep}
+        onClick={() => void sweep()}
         disabled={running}
         title="Run a sweep now"
         aria-label={`Run a sweep now. ${due ? "The next scheduled sweep is due." : `Next scheduled sweep in ${label}.`}`}

@@ -5,7 +5,9 @@ How Cadence works and why it is built this way. For setup see the [README](../RE
 
 ## The two flows
 
-**Sweep (writes).** Every five minutes a GitHub Actions cron calls `POST /internal/run-sweep` on the API with the
+**Sweep (writes).** A sweep starts in one of three ways, all through the same guarded code path: an open page runs
+one when the predicted time has passed, a visitor presses the countdown tag, or the GitHub Actions cron fires (often
+hours late). The cron, every five minutes in principle, calls `POST /internal/run-sweep` on the API with the
 `X-Cron-Secret` header. The API checks every monitor in parallel, stores each result, and opens or resolves incidents.
 Everything else (uptime, percentiles, streaks, HP, achievements) is derived from the stored checks when it is read.
 
@@ -36,6 +38,8 @@ flowchart LR
   2 minutes ago. Without that, a retried or overlapping request could record one outage twice and open an incident
   that the 2-failure rule was meant to prevent.
 - `POST /internal/run-sweep` refuses to run (503) when `CRON_SECRET` is unset, so a missing setting fails closed.
+- When a sweep is due, an open page runs it itself, once per due time and after a random 0.5-3 s delay so several
+  tabs do not fire together; whichever loses the race is told "in progress" and just reloads the result.
 - The page's countdown tag is also a **sweep now** button (`POST /sweep`). It is public, so it takes no secret; the lock
   and the 2-minute gap are what limit it. Both endpoints share `try_sweep()` in `backend/app/sweep.py`, so the rules
   cannot drift apart. Each sweep's duration (finished minus started) is shown in the header.
