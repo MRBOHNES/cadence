@@ -116,22 +116,12 @@ SUMMARY_SQL = q("""
         / NULLIF(count(*) FILTER (WHERE checked_at > :now - interval '30 days'), 0), 3) AS uptime_cur,
       ROUND(100.0 * count(*) FILTER (WHERE ok AND checked_at <= :now - interval '30 days')
         / NULLIF(count(*) FILTER (WHERE checked_at <= :now - interval '30 days'), 0), 3) AS uptime_prev,
-      percentile_cont(0.5) WITHIN GROUP (ORDER BY latency_ms)
-        FILTER (WHERE checked_at > :now - interval '24 hours') AS p50_cur,
-      percentile_cont(0.95) WITHIN GROUP (ORDER BY latency_ms)
-        FILTER (WHERE checked_at > :now - interval '24 hours') AS p95_cur,
       count(*) FILTER (WHERE checked_at > :now - interval '24 hours') AS checks_24h,
+      count(*) FILTER (WHERE ok AND latency_ms > :slow_ms AND checked_at > :now - interval '24 hours') AS slow_24h,
       count(*) FILTER (WHERE NOT ok AND checked_at > :now - interval '24 hours') AS failed_24h
     FROM checks
     WHERE checked_at > :now - interval '60 days' AND checked_at <= :now
 """)
-PREV_LATENCY_SQL = q("""
-    SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY latency_ms) AS p50,
-           percentile_cont(0.95) WITHIN GROUP (ORDER BY latency_ms) AS p95
-    FROM checks
-    WHERE checked_at <= :now - interval '24 hours' AND checked_at > :now - interval '48 hours'
-""")
-
 SWEEP_SQL = text("""
     SELECT id AS latest, started_at AS started,
            ROUND(EXTRACT(EPOCH FROM (finished_at - started_at)) * 1000)::int AS duration_ms
@@ -145,18 +135,14 @@ def _delta(cur: float | None, prev: float | None, digits: int = 3) -> float | No
 
 
 async def summary_row(session: AsyncSession, now: datetime) -> dict:
-    s = (await session.execute(SUMMARY_SQL, {"now": now})).mappings().one()
-    prev = (await session.execute(PREV_LATENCY_SQL, {"now": now})).mappings().one()
+    s = (await session.execute(SUMMARY_SQL, {"now": now, "slow_ms": SLOW_MS})).mappings().one()
     sweep = (await session.execute(SWEEP_SQL)).mappings().one_or_none() or {}
     open_incidents = (await session.execute(OPEN_INCIDENTS_SQL)).scalar_one()
     return {
         "uptime_30d": _round(s["uptime_cur"]),
         "uptime_change": _delta(s["uptime_cur"], s["uptime_prev"]),
-        "median_ms_24h": _round(s["p50_cur"], 1),
-        "median_change_ms": _delta(s["p50_cur"], prev["p50"], 1),
-        "p95_ms_24h": _round(s["p95_cur"], 1),
-        "p95_change_ms": _delta(s["p95_cur"], prev["p95"], 1),
         "checks_24h": s["checks_24h"],
+        "slow_checks_24h": s["slow_24h"],
         "failed_24h": s["failed_24h"],
         "latest_sweep": sweep.get("latest"),
         "latest_sweep_duration_ms": sweep.get("duration_ms"),

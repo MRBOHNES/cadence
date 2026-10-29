@@ -13,11 +13,12 @@ class Summary(BaseModel):
     uptime_change: float | None  # percentage points vs the previous 30 days
     services_up: int
     services_total: int
-    median_ms_24h: float | None
-    median_change_ms: float | None  # vs the previous 24 hours
-    p95_ms_24h: float | None
-    p95_change_ms: float | None
+    # Latency is only meaningful per service, so the summary names the slowest one rather than
+    # pooling unrelated services into one median/p95.
+    slowest_service: str | None  # name of the service with the highest p95 over 24h
+    slowest_p95_ms: float | None
     checks_24h: int
+    slow_checks_24h: int  # successful checks over 500 ms in the last 24h
     failed_24h: int
     latest_sweep: int | None
     latest_sweep_at: datetime | None

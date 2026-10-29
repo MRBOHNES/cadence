@@ -48,3 +48,6 @@ It can trigger at most one sweep every 2 minutes, because every sweep goes throu
 **Why did you stop monitoring the ClaimSage API?**
 It runs on Render's free tier in the same workspace. Free instance hours are shared, and a 5-minute check keeps a service awake around the clock, so monitoring it would have exhausted the hours mid-month and suspended both services. Cadence now monitors services hosted on Vercel and GitHub instead.
 
+**Why does the KPI strip show the slowest service instead of an overall median?**
+Percentiles over unrelated services are meaningless: one cold-starting API dominated the pooled p95. Naming the slowest service's p95 points at something you can act on, and the per-service charts carry the rest.
+

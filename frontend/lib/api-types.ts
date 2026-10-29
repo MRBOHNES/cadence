@@ -297,16 +297,14 @@ export interface components {
             services_up: number;
             /** Services Total */
             services_total: number;
-            /** Median Ms 24H */
-            median_ms_24h: number | null;
-            /** Median Change Ms */
-            median_change_ms: number | null;
-            /** P95 Ms 24H */
-            p95_ms_24h: number | null;
-            /** P95 Change Ms */
-            p95_change_ms: number | null;
+            /** Slowest Service */
+            slowest_service: string | null;
+            /** Slowest P95 Ms */
+            slowest_p95_ms: number | null;
             /** Checks 24H */
             checks_24h: number;
+            /** Slow Checks 24H */
+            slow_checks_24h: number;
             /** Failed 24H */
             failed_24h: number;
             /** Latest Sweep */

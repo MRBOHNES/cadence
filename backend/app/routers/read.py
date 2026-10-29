@@ -30,12 +30,16 @@ async def summary(
     monitors = await queries.monitor_rows(session, now)
     started = row.pop("sweep_started_at")
     streak, best = await game.overall_streaks(session, now)
+    measured = [m for m in monitors if m["p95_ms"] is not None]
+    slowest = max(measured, key=lambda m: m["p95_ms"]) if measured else None
     return {
         **row,
         "streak_days": streak,
         "best_streak_days": best,
         "services_up": sum(m["state"] in ("up", "slow") for m in monitors),
         "services_total": len(monitors),
+        "slowest_service": slowest["name"] if slowest else None,
+        "slowest_p95_ms": slowest["p95_ms"] if slowest else None,
         "latest_sweep_at": started,
         # A prediction only: the cron is best-effort, so the real sweep can be late.
         "next_sweep_at": started + SWEEP_INTERVAL if started else None,

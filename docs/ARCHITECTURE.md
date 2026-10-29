@@ -74,6 +74,8 @@ flowchart LR
 
 **No chart library.** The charts are small SVG components (a path, an area, a few gridlines). This keeps the bundle small, avoids a dependency to maintain, and makes every pixel match the design.
 
+**No pooled latency KPIs (a deliberate deviation from the original spec).** The spec's KPI strip had a median and a p95 over all services combined. Pooling GitHub, two Vercel apps and anything with a cold start produces a number that describes none of them (a single cold start showed up as a 5 s "p95"). The strip instead shows the **slowest service's p95** by name and the **number of slow checks** (successful but over 500 ms) in the last 24 hours. Per-service p50/p95 stay on each chart.
+
 **Chart axis (a deliberate deviation from the design).** The design fixes the y-axis at 600 / 300 / 0 ms. The axis keeps that scale normally, but grows in 300 ms steps when a spike goes above 600 ms. Clipping the spike at the top edge would hide exactly the event the orange dot is there to mark.
 
 **Honest game layer.** Achievements that cover a window (30 days, 7 days) stay locked until the data actually spans that window, so a fresh deployment cannot "unlock" a perfect month on day one. Only unlock timestamps are stored; whether a rule holds is always recomputed from checks.

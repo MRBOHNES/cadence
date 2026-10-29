@@ -26,14 +26,43 @@ async def test_summary_shape_and_values(client, seed):
     await seed.commit()
     body = (await client.get("/summary")).json()
     assert set(body) == {
-        "uptime_30d", "uptime_change", "services_up", "services_total", "median_ms_24h",
-        "median_change_ms", "p95_ms_24h", "p95_change_ms", "checks_24h", "failed_24h",
-        "latest_sweep", "latest_sweep_at", "latest_sweep_duration_ms", "next_sweep_at", "streak_days", "best_streak_days", "open_incidents",
+        "uptime_30d", "uptime_change", "services_up", "services_total", "slowest_service",
+        "slowest_p95_ms", "checks_24h", "slow_checks_24h", "failed_24h", "latest_sweep",
+        "latest_sweep_at", "latest_sweep_duration_ms", "next_sweep_at", "streak_days",
+        "best_streak_days", "open_incidents",
     }  # fmt: skip
     assert body["uptime_30d"] == 50.0
     assert (body["checks_24h"], body["failed_24h"]) == (2, 1)
     assert (body["services_up"], body["services_total"]) == (1, 1)
     assert body["latest_sweep"] == seed.sweep_id
+
+
+async def test_summary_names_the_slowest_service_by_p95(client, seed):
+    fast, slow = await seed.monitor("fa"), await seed.monitor("sl")
+    for i in range(5):
+        seed.check(fast, ago=(i + 1) * M, latency=80)
+        seed.check(slow, ago=(i + 1) * M, latency=400 + 100 * i)
+    await seed.commit()
+    body = (await client.get("/summary")).json()
+    assert body["slowest_service"] == "SL"
+    assert body["slowest_p95_ms"] == 780.0  # percentile_cont over 400..800
+
+
+async def test_summary_counts_only_successful_slow_checks(client, seed):
+    m = await seed.monitor("a")
+    seed.check(m, ago=M, latency=501)
+    seed.check(m, ago=2 * M, latency=500)  # not over the threshold
+    seed.check(m, ago=3 * M, ok=False)  # a failure is not "slow"
+    seed.check(m, ago=timedelta(days=2), latency=900)  # outside 24h
+    await seed.commit()
+    assert (await client.get("/summary")).json()["slow_checks_24h"] == 1
+
+
+async def test_summary_has_no_slowest_service_without_latency_data(client, seed):
+    await seed.monitor("a")
+    await seed.commit()
+    body = (await client.get("/summary")).json()
+    assert (body["slowest_service"], body["slowest_p95_ms"], body["slow_checks_24h"]) == (None, None, 0)
 
 
 async def test_summary_next_sweep_is_five_minutes_after_last(client, seed):

@@ -1,7 +1,7 @@
 import { StreakBar } from "./Blocks";
 import { Marked, type Tone } from "./Marker";
 import type { Summary } from "@/lib/api";
-import { ms, pct, signed } from "@/lib/format";
+import { SLOW_MS, ms, pct, signed } from "@/lib/format";
 
 
 function Cell({
@@ -33,15 +33,8 @@ function Change({ tone, children }: { tone: Tone; children: React.ReactNode }) {
   );
 }
 
-/** For latency, a drop is good. */
-function latencyChange(delta: number | null): { tone: Tone; text: string } {
-  if (delta === null) return { tone: "muted", text: "no prior data" };
-  return { tone: delta > 0 ? "warn" : "good", text: `${signed(delta)} ms vs prev 24h` };
-}
-
 export function KpiStrip({ summary }: { summary: Summary }) {
-  const median = latencyChange(summary.median_change_ms ?? null);
-  const p95 = latencyChange(summary.p95_change_ms ?? null);
+  const slowestMs = summary.slowest_p95_ms ?? null;
   const down = summary.services_total - summary.services_up;
   const change = summary.uptime_change ?? null;
   return (
@@ -60,11 +53,16 @@ export function KpiStrip({ summary }: { summary: Summary }) {
       <Cell label="Services up" value={`${summary.services_up}/${summary.services_total}`}>
         <Change tone={down ? "bad" : "good"}>{down ? `${down} down` : "all healthy"}</Change>
       </Cell>
-      <Cell label="Median ms" value={ms(summary.median_ms_24h ?? null)}>
-        <Change tone={median.tone}>{median.text}</Change>
+      {/* Latency is per service: pooling GitHub with a cold-starting API would describe neither. */}
+      <Cell label="Slowest p95 ms" value={ms(slowestMs)}>
+        {summary.slowest_service ? (
+          <Change tone={slowestMs !== null && slowestMs > SLOW_MS ? "warn" : "good"}>{summary.slowest_service}</Change>
+        ) : (
+          <Change tone="muted">no data yet</Change>
+        )}
       </Cell>
-      <Cell label="p95 ms" value={ms(summary.p95_ms_24h ?? null)}>
-        <Change tone={p95.tone}>{p95.text}</Change>
+      <Cell label="Slow checks 24h" value={String(summary.slow_checks_24h)}>
+        <Change tone={summary.slow_checks_24h ? "warn" : "muted"}>over {SLOW_MS} ms, still up</Change>
       </Cell>
       <Cell label="Checks 24h" value={String(summary.checks_24h)}>
         <Change tone={summary.failed_24h ? "bad" : "muted"}>{summary.failed_24h} failed</Change>
